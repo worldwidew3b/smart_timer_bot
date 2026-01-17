@@ -2,10 +2,13 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+
 from ..services.state import TaskCreation
 from ..keyboards.builders import get_main_keyboard, get_priority_keyboard, get_confirmation_keyboard
 from ..services.api_client import ApiClient
-import re
+from ...core.config import settings
+# Use the bot-specific model for creating tasks
+from ..models.api import TaskCreate
 
 
 router = Router()
@@ -14,6 +17,11 @@ router = Router()
 @router.message(Command("newtask"))
 async def command_new_task(message: Message, state: FSMContext):
     """Start the task creation process"""
+    user_data = await state.get_data()
+    if not user_data.get("user_id"):
+        await message.answer("Please run /start first to register.")
+        return
+        
     await message.answer("📝 Please enter the task title:")
     await state.set_state(TaskCreation.waiting_for_title)
 
@@ -65,8 +73,6 @@ async def process_priority(callback: CallbackQuery, state: FSMContext):
     priority = int(callback.data.split('_')[1])
     await state.update_data(priority=priority)
     
-    # For now, we'll skip the tags selection and go to confirmation
-    # In a full implementation, we would allow tag selection here
     data = await state.get_data()
     
     preview_text = (
@@ -90,10 +96,15 @@ async def process_priority(callback: CallbackQuery, state: FSMContext):
 async def confirm_create_task(callback: CallbackQuery, state: FSMContext):
     """Confirm task creation"""
     data = await state.get_data()
+    user_id = data.get("user_id")
     
+    if not user_id:
+        await callback.message.edit_text("❌ Error: User not identified. Please run /start again.")
+        await state.clear()
+        return
+
     # Create the task via API
-    async with ApiClient("http://localhost:8000") as api_client:
-        from ..domain.models.task import TaskCreate
+    async with ApiClient(settings.api_base_url) as api_client:
         task_create_data = TaskCreate(
             title=data['title'],
             description=data['description'] if data['description'] else None,
@@ -103,7 +114,7 @@ async def confirm_create_task(callback: CallbackQuery, state: FSMContext):
         )
         
         try:
-            created_task = await api_client.create_task(task_create_data, user_id=1)
+            created_task = await api_client.create_task(user_id=user_id, task_data=task_create_data)
             await callback.message.edit_text(f"✅ Task '{created_task.title}' created successfully!")
         except Exception as e:
             await callback.message.edit_text(f"❌ Failed to create task: {str(e)}")
@@ -116,33 +127,3 @@ async def cancel_action(callback: CallbackQuery, state: FSMContext):
     """Cancel current action"""
     await callback.message.edit_text("Action cancelled.")
     await state.clear()
-
-
-@router.message(Command("mytasks"))
-async def command_my_tasks(message: Message):
-    """Show user's tasks"""
-    async with ApiClient("http://localhost:8000") as api_client:
-        try:
-            tasks = await api_client.get_tasks(user_id=1)
-            if not tasks:
-                await message.answer("You don't have any tasks yet. Use /newtask to create one!")
-                return
-            
-            tasks_text = "<b>Your Tasks:</b>\n\n"
-            for i, task in enumerate(tasks[:10], 1):  # Limit to first 10 tasks
-                status = "✅" if task.completed else "⏳"
-                tasks_text += (
-                    f"{i}. {status} <b>{task.title}</b>\n"
-                    f"   Est. time: {task.estimated_time} min | "
-                    f"Priority: {'⭐' * task.priority}\n"
-                )
-                
-                if task.tags:
-                    tag_names = [tag.name for tag in task.tags]
-                    tasks_text += f"   Tags: {', '.join(tag_names)}\n"
-                
-                tasks_text += "\n"
-            
-            await message.answer(tasks_text, parse_mode="HTML", reply_markup=get_main_keyboard())
-        except Exception as e:
-            await message.answer(f"❌ Failed to load tasks: {str(e)}")

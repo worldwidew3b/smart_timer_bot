@@ -1,24 +1,33 @@
 import asyncio
 import logging
+import sys
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from src.core.config import settings
+
 # Import routers
-from bot.handlers.start import router as start_router
-from bot.handlers.tasks.create import router as tasks_create_router  
-from bot.handlers.tasks.list import router as tasks_list_router
-from bot.handlers.timer.start import router as timer_router
-from bot.handlers.statistics.daily import router as stats_router
+from src.bot.handlers.start import router as start_router
+from src.bot.handlers.tasks.create import router as tasks_create_router  
+from src.bot.handlers.tasks.list import router as tasks_list_router
+from src.bot.handlers.timer.start import router as timer_router
+from src.bot.handlers.statistics.daily import router as stats_router
 
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 async def main():
-    # Initialize bot with token from environment
-    bot = Bot(token="YOUR_TELEGRAM_BOT_TOKEN_HERE", default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # Check if bot token is provided
+    if not settings.telegram_bot_token:
+        logger.critical("FATAL: 'TELEGRAM_BOT_TOKEN' is not set in the environment.")
+        sys.exit(1)
+        
+    # Initialize bot with token from settings
+    bot = Bot(token=settings.telegram_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     
     # Initialize dispatcher
     dp = Dispatcher()
@@ -31,6 +40,7 @@ async def main():
     dp.include_router(stats_router)
     
     # Start polling
+    logger.info("Starting bot polling...")
     try:
         await dp.start_polling(bot)
     finally:

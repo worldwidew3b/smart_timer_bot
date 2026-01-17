@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..api.dependencies import get_db_session_dependency
+from ..api.dependencies import get_db_session_dependency, get_user_id_dependency
 from ..domain.services.timer_service import TimerService
 from ..domain.models.timer import TimerStart, TimerStop, TimerResponse
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/timer", tags=["timer"])
 async def start_timer(
     timer_data: TimerStart,
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Start a timer for a task"""
     timer_service = TimerService(db_session)
@@ -26,7 +26,7 @@ async def start_timer(
 async def stop_timer(
     timer_data: TimerStop,
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Stop a timer session"""
     timer_service = TimerService(db_session)
@@ -39,7 +39,7 @@ async def stop_timer(
 @router.get("/active", response_model=TimerResponse)
 async def get_active_timer(
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Get the currently active timer for a user"""
     timer_service = TimerService(db_session)

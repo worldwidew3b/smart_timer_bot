@@ -2,7 +2,8 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from .base import BaseRepository
-from ..models import Task, User, Tag
+from sqlalchemy.orm import selectinload
+from ..models import Task, User, Tag, task_tags
 from ...domain.models.task import TaskCreate, TaskUpdate
 
 
@@ -10,22 +11,48 @@ class TaskRepository(BaseRepository[Task]):
     def __init__(self, db_session: AsyncSession):
         super().__init__(Task, db_session)
 
-    async def get_tasks_by_user(
+    async def get_filtered_tasks(
         self, 
         user_id: int, 
         skip: int = 0, 
         limit: int = 100,
-        completed: Optional[bool] = None
+        completed: Optional[bool] = None,
+        priority: Optional[int] = None,
+        tag_id_list: Optional[List[int]] = None,
+        title_contains: Optional[str] = None,
+        estimated_time_min: Optional[int] = None,
+        estimated_time_max: Optional[int] = None,
     ) -> List[Task]:
-        """Get tasks for a specific user with optional filtering"""
-        stmt = select(Task).where(Task.user_id == user_id)
+        """Get tasks for a user with comprehensive filtering and eager loading of tags."""
+        stmt = (
+            select(Task)
+            .where(Task.user_id == user_id)
+            .options(selectinload(Task.tags))
+        )
         
         if completed is not None:
             stmt = stmt.where(Task.completed == completed)
-            
+        
+        if priority is not None:
+            stmt = stmt.where(Task.priority == priority)
+        
+        if title_contains:
+            stmt = stmt.where(Task.title.contains(title_contains))
+        
+        if estimated_time_min is not None:
+            stmt = stmt.where(Task.estimated_time >= estimated_time_min)
+        
+        if estimated_time_max is not None:
+            stmt = stmt.where(Task.estimated_time <= estimated_time_max)
+        
+        if tag_id_list:
+            stmt = stmt.join(task_tags).where(task_tags.c.tag_id.in_(tag_id_list))
+
         stmt = stmt.offset(skip).limit(limit)
+        
         result = await self.db_session.execute(stmt)
-        return result.scalars().all()
+        # Use .unique() to handle potential duplicates from the join
+        return result.scalars().unique().all()
 
     async def get_task_with_details(self, task_id: int, user_id: int) -> Optional[Task]:
         """Get a task with its tags and user info"""

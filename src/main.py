@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .api.endpoints import tasks, tags, timer, statistics
+from .api.endpoints import tasks, tags, timer, statistics, users
 from .core.config import settings
 
 
@@ -11,6 +11,7 @@ def create_app():
     )
     
     # Include routers
+    app.include_router(users.router)
     app.include_router(tasks.router)
     app.include_router(tags.router)
     app.include_router(timer.router)

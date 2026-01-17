@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
-from ..api.dependencies import get_db_session_dependency
+from ..api.dependencies import get_db_session_dependency, get_user_id_dependency
 from ..domain.services.stats_service import StatsService
 from ..domain.models.statistics import DailyStats, WeeklyStats, TagStats, ProductivityTrend
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/stats", tags=["statistics"])
 async def get_daily_stats(
     date: str = None,  # Format: YYYY-MM-DD
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Get statistics for a specific date"""
     if not date:
@@ -27,7 +27,7 @@ async def get_daily_stats(
 @router.get("/weekly", response_model=WeeklyStats)
 async def get_weekly_stats(
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Get statistics for the current week"""
     stats_service = StatsService(db_session)
@@ -39,7 +39,7 @@ async def get_tag_stats(
     tag_ids: str = None,  # Comma-separated list of tag IDs
     period: int = 30,  # Number of days to look back
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Get statistics for specific tags over a period"""
     # Parse tag_ids if provided
@@ -58,7 +58,7 @@ async def get_tag_stats(
 async def get_productivity_trends(
     days: int = 7,
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Get productivity trends over the specified number of days"""
     stats_service = StatsService(db_session)

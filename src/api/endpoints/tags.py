@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..api.dependencies import get_db_session_dependency
+from ..api.dependencies import get_db_session_dependency, get_user_id_dependency
 from ..infrastructure.database.repositories.tag_repository import TagRepository
 from ..domain.models.task import TagCreate, TagUpdate, TagResponse
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/tags", tags=["tags"])
 async def create_tag(
     tag: TagCreate,
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Create a new tag"""
     tag_repository = TagRepository(db_session)
@@ -29,7 +29,7 @@ async def create_tag(
 @router.get("/", response_model=List[TagResponse])
 async def get_tags(
     db_session: AsyncSession = Depends(get_db_session_dependency),
-    user_id: int = 1  # In a real app, this would come from authentication
+    user_id: int = Depends(get_user_id_dependency)
 ):
     """Get all tags for a user"""
     tag_repository = TagRepository(db_session)

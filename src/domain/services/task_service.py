@@ -27,10 +27,25 @@ class TaskService:
         user_id: int, 
         skip: int = 0, 
         limit: int = 100,
-        completed: Optional[bool] = None
+        completed: Optional[bool] = None,
+        priority: Optional[int] = None,
+        tag_id_list: Optional[List[int]] = None,
+        title_contains: Optional[str] = None,
+        estimated_time_min: Optional[int] = None,
+        estimated_time_max: Optional[int] = None,
     ) -> List[TaskResponse]:
         """Get all tasks for a user with optional filtering"""
-        tasks = await self.task_repository.get_tasks_by_user(user_id, skip, limit, completed)
+        tasks = await self.task_repository.get_filtered_tasks(
+            user_id=user_id,
+            skip=skip,
+            limit=limit,
+            completed=completed,
+            priority=priority,
+            tag_id_list=tag_id_list,
+            title_contains=title_contains,
+            estimated_time_min=estimated_time_min,
+            estimated_time_max=estimated_time_max,
+        )
         return [TaskResponse.from_orm(task) for task in tasks]
 
     async def update_task(
